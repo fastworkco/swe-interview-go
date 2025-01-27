@@ -134,6 +134,7 @@ Ensure you have the following installed:
 
 3. Run PostgreSQL Local:
    ```bash
+   mkdir data
    docker-compose up -d
    ```
 

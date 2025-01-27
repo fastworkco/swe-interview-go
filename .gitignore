@@ -3,4 +3,3 @@
 
 #Volume for Postgres
 data/*
-!data/.gitkeep 
