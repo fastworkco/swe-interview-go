@@ -1,2 +1,6 @@
 # OS
 .DS_Store
+
+#Volume for Postgres
+data/*
+!data/.gitkeep 

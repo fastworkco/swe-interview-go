@@ -1,101 +1,116 @@
 package main
 
 import (
-	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
-type Item struct {
-	ID     int     `json:"id"`
-	Name   string  `json:"name"`
-	Price  float64 `json:"price"`
-	Amount int     `json:"amount"`
+var DB *gorm.DB
+
+func InitDB() {
+	// Connect to the database
+	var err error
+	err = godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	// Set up database connection string
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Bangkok",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_PORT"),
+	)
+
+	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	log.Println("Database connection established.")
 }
 
-const csvFilePath = "./items.csv"
-
-// Read items from the CSV file
-func ReadItemsFromCSV() ([]Item, error) {
-	file, err := os.Open(csvFilePath)
+// MigrateDatabase migrates the database schema
+func MigrateDatabase() {
+	err := DB.AutoMigrate(&Item{})
 	if err != nil {
-		return nil, err
+		log.Fatalf("Failed to migrate database: %v", err)
 	}
-	defer file.Close()
-
-	var items []Item
-	reader := csv.NewReader(file)
-	records, err := reader.ReadAll()
-	if err != nil {
-		return nil, err
-	}
-
-	for i, record := range records {
-		if i == 0 { // Skip header row
-			continue
-		}
-
-		id, _ := strconv.Atoi(record[0])
-		price, _ := strconv.ParseFloat(record[2], 64)
-
-		items = append(items, Item{
-			ID:    id,
-			Name:  record[1],
-			Price: price,
-		})
-	}
-
-	return items, nil
+	log.Println("Database migration completed.")
 }
 
-// Write items to the CSV file
-func WriteItemsToCSV(items []Item) error {
-	file, err := os.Create(csvFilePath)
-	if err != nil {
-		return err
+// SeedDatabase populates the database with initial data
+func SeedDatabase() {
+	// Define initial seed data
+	items := []Item{
+		{
+			Name:   "Potato",
+			Price:  10,
+			Amount: 200,
+		},
+		{
+			Name:   "Carrot",
+			Price:  15,
+			Amount: 50,
+		},
 	}
-	defer file.Close()
 
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	// Write header row
-	if err := writer.Write([]string{"id", "name", "price"}); err != nil {
-		return err
+	if DB.Where("name = ?", "Potato").First(&Item{}).Error == nil {
+		return
 	}
 
-	// Write data rows
+	// Insert seed data into the database
 	for _, item := range items {
-		row := []string{
-			strconv.Itoa(item.ID),
-			item.Name,
-			strconv.FormatFloat(item.Price, 'f', 2, 64),
-		}
-		if err := writer.Write(row); err != nil {
-			return err
+		err := DB.Create(&item).Error
+		if err != nil {
+			log.Printf("Failed to seed notification: %v", err)
+		} else {
+			log.Printf("Seeded notification: %+v", item)
 		}
 	}
+	log.Println("Database seeding completed.")
+}
 
-	return nil
+type Item struct {
+	ID        int       `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Name      string    `json:"name"`
+	Price     float64   `json:"price"`
+	Amount    int       `json:"amount"`
 }
 
 func main() {
-	r := mux.NewRouter()
+	// Initialize database and run migrations
+	InitDB()
+	MigrateDatabase()
+	SeedDatabase()
 
+	r := mux.NewRouter()
 	// Item Handlers
 	r.HandleFunc("/items", func(w http.ResponseWriter, r *http.Request) {
-		items, err := ReadItemsFromCSV()
+		var items []Item
+		err := DB.Find(&items).Error
+
 		if err != nil {
 			http.Error(w, "Failed to read items", http.StatusInternalServerError)
 			return
 		}
 		json.NewEncoder(w).Encode(items)
 	}).Methods("GET")
+
+	// Missing: Implement create, update and delete
 
 	log.Println("Server running on port 3000")
 	log.Fatal(http.ListenAndServe(":3000", r))

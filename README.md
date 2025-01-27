@@ -13,7 +13,6 @@ This project demonstrates a REST API implementation for managing items, written 
 
 ## Additional Features
 - Cache result of each request for 60 seconds
-- Integrating with databases like PostgreSQL, MongoDB, etc.
 
 ## Endpoints
 
@@ -26,20 +25,24 @@ This project demonstrates a REST API implementation for managing items, written 
 - **POST** `/items`
 - **Request Body**:
   ```json
-  {
-    "name": "string",
-    "price": number
-    "amount": number
-  }
+  [
+    {
+      "name": "string",
+      "price": number
+      "amount": number
+    }
+  ]
   ```
 - **Response**:
   ```json
-  {
-    "id": "string",
-    "name": "string",
-    "price": number,
-    "amount": number
-  }
+  [
+    {
+      "id": "string",
+      "name": "string",
+      "price": number,
+      "amount": number
+    }
+  ]
   ```
 
 #### 2. Get All Items
@@ -101,9 +104,12 @@ This project demonstrates a REST API implementation for managing items, written 
 
 ```
 swe-interview-go/
-├── main.go
-├── items.csv
-└── go.mod
+├── data/                 # Directory for mount to docker
+├── main.go               # Entry point
+├── .env                  # env for database connection
+├── docker-compose.yaml   # Docker for PostgreSQL
+├── go.mod                # Dependencies
+└── README.md             # Instructions for candidates
 ```
 
 ## Setup and Run
@@ -126,7 +132,12 @@ Ensure you have the following installed:
    go get
    ```
 
-3. Run the project:
+3. Run PostgreSQL Local:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Run the project:
    ```bash
    go run main.go
    ```
